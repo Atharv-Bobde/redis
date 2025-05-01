@@ -50,6 +50,7 @@
         "ratio": "cpp",
         "sstream": "cpp",
         "unordered_map": "cpp",
-        "list": "cpp"
+        "list": "cpp",
+        "thread": "cpp"
     }
 }
