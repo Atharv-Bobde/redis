@@ -16,7 +16,7 @@ class ClientConnection {
         ~ClientConnection();
     
     private:
-        void handle(); // private logic for handling client
+        void handle(); 
         void handle_PING(vector<string> arr);
         void handle_ECHO(vector<string> arr);
         void handle_SET(vector<string> arr);
