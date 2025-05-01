@@ -45,13 +45,16 @@ void handle_client(int client_fd) {
           break;
       }
       if(arr.size() > 0){
-          if(arr[0] == "PING"){
+          string command = arr[0];
+          transform(command.begin(), command.end(), command.begin(), ::toupper);
+          if(command == "PING"){
             // PING command
             write(client_fd, ping_response.c_str(), ping_response.size());
-          }else if(arr[0] == "ECHO"){
+          }else if(command == "ECHO"){
             string echo_response = toRESPBulkStrings(arr,1,arr.size());
+            cout<<"ECHO response: "<<echo_response.c_str()<<endl;
             write(client_fd, echo_response.c_str(), echo_response.size());
-          }else if(arr[0]=="SET"){
+          }else if(command=="SET"){
             // SET command
             if(arr.size() < 3){
               cerr << "Invalid number of arguments for SET command\n";
@@ -63,6 +66,8 @@ void handle_client(int client_fd) {
             string set_response = "+OK\r\n";
             write(client_fd, set_response.c_str(), set_response.size());
             if(arr.size()==5){
+              string arg=arr[3];
+              transform(arg.begin(), arg.end(), arg.begin(), ::toupper);
               if(arr[3]!="EX" && arr[3]!="PX"){
                 cerr << "Invalid argument for SET command\n";
                 break;
@@ -99,7 +104,7 @@ void handle_client(int client_fd) {
                 }).detach();
               }
             }
-          }else if(arr[0]=="GET"){
+          }else if(command=="GET"){
             // GET command
             string key = arr[1];
             if(dataMap.find(key) != dataMap.end()){
@@ -110,11 +115,11 @@ void handle_client(int client_fd) {
               string get_response = "$-1\r\n";
               write(client_fd, get_response.c_str(), get_response.size());
             }
-          }else if(arr[0]=="COMMAND"){
+          }else if(command=="COMMAND"){
             send(client_fd, "*0\r\n", 4, 0);
           }
           else{
-            cerr << "Unknown command: " << arr[0] << "\n";
+            cerr << "Unknown command: " << command << "\n";
           }
         }
   }
