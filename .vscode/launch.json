@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug server (LLDB)",
+        "type": "lldb",
+        "request": "launch",
+        "program": "${workspaceFolder}/build/server",
+        "args": [],
+        "cwd": "${workspaceFolder}",
+        "stopOnEntry": false,
+        "internalConsoleOptions": "openOnSessionStart",
+        "preLaunchTask": "Start Server Script",
+      }
+    ]
+  }

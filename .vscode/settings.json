@@ -38,6 +38,17 @@
         "typeinfo": "cpp",
         "variant": "cpp",
         "memory": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "vector": "cpp",
+        "__hash_table": "cpp",
+        "__node_handle": "cpp",
+        "__split_buffer": "cpp",
+        "charconv": "cpp",
+        "complex": "cpp",
+        "deque": "cpp",
+        "forward_list": "cpp",
+        "ratio": "cpp",
+        "sstream": "cpp",
+        "unordered_map": "cpp"
     }
 }
