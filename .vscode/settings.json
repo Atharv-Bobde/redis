@@ -51,6 +51,8 @@
         "sstream": "cpp",
         "unordered_map": "cpp",
         "list": "cpp",
-        "thread": "cpp"
+        "thread": "cpp",
+        "any": "cpp",
+        "type_traits": "cpp"
     }
 }

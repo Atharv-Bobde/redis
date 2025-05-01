@@ -1,130 +1,15 @@
 #include <iostream>
 #include <cstdlib>
-#include <string>
-#include <cstring>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <thread>
 #include <vector>
-#include <cctype>
 #include "RESP.utils.h"
-#include <unordered_map>
+#include "ClientConnection.h"
 using namespace std;
 
-void handle_client(int client_fd) {
-  string ping_response = "+PONG\r\n";
-  char buffer[1024];
-  unordered_map<string,string> dataMap;
-  while(true){
-    ssize_t bytes_received = read(client_fd, buffer, sizeof(buffer) - 1);
-    // bytes_received=0 means the client has closed the connection  (could be after sending the message)
-    // bytes_received<0 means an error occurred
-    // bytes_received>0 means we received a message from the client
-    if (bytes_received <= 0) {
-      if (bytes_received == 0) {
-        cout << "Client disconnected\n";
-      } else {
-        cerr << "Failed to receive data from client\n";
-      }
-      break;
-    } 
-      buffer[bytes_received] = '\0';
-      string message(buffer);
-      size_t pos=0;
-      char type=message[0];
-      vector<string> arr;
-      switch (type){
-        case '*': // Array
-          parseRESPArray(message,arr);
-          break;
-        case '$': // bulk String
-          parseBulkStrings(message,arr);
-          break;
-      }
-      if(arr.size() > 0){
-          string command = arr[0];
-          transform(command.begin(), command.end(), command.begin(), ::toupper);
-          if(command == "PING"){
-            // PING command
-            write(client_fd, ping_response.c_str(), ping_response.size());
-          }else if(command == "ECHO"){
-            string echo_response = toRESPBulkStrings(arr,1,arr.size());
-            cout<<"ECHO response: "<<echo_response.c_str()<<endl;
-            write(client_fd, echo_response.c_str(), echo_response.size());
-          }else if(command=="SET"){
-            // SET command
-            if(arr.size() < 3){
-              cerr << "Invalid number of arguments for SET command\n";
-              break;
-            }
-            string key = arr[1];
-            string value = arr[2];
-            dataMap.insert({key,value});
-            string set_response = "+OK\r\n";
-            write(client_fd, set_response.c_str(), set_response.size());
-            if(arr.size()==5){
-              string arg=arr[3];
-              transform(arg.begin(), arg.end(), arg.begin(), ::toupper);
-              if(arr[3]!="EX" && arr[3]!="PX"){
-                cerr << "Invalid argument for SET command\n";
-                break;
-              }
-              if(arr[3]=="EX"){
-                // set expiration time in seconds
-                int expiration_time = stoi(arr[4]);
-                thread([&dataMap,&key,expiration_time]() {
-                  // Sleep for 5 seconds before erasing the key
-                  this_thread::sleep_for(chrono::seconds(expiration_time));
-          
-                  // Erase the key from the map
-                  if (dataMap.find(key) != dataMap.end()) {
-                      cout << "Erasing key " << key << " from map after delay!" << endl;
-                      dataMap.erase(key);
-                  } else {
-                      cout << "Key " << key << " not found in map!" << endl;
-                  }
-                }).detach();
-              }else if(arr[3]=="PX"){
-                // set expiration time in milliseconds
-                int expiration_time = stoi(arr[4]);
-                thread([&dataMap,&key,expiration_time]() {
-                  // Sleep for 5 seconds before erasing the key
-                  this_thread::sleep_for(chrono::milliseconds(expiration_time));
-          
-                  // Erase the key from the map
-                  if (dataMap.find(key) != dataMap.end()) {
-                      cout << "Erasing key " << key << " from map after delay!" << endl;
-                      dataMap.erase(key);
-                  } else {
-                      cout << "Key " << key << " not found in map!" << endl;
-                  }
-                }).detach();
-              }
-            }
-          }else if(command=="GET"){
-            // GET command
-            string key = arr[1];
-            if(dataMap.find(key) != dataMap.end()){
-              string value = dataMap[key];
-              string get_response = toRESPBulkStrings({value},0,1);
-              write(client_fd, get_response.c_str(), get_response.size());
-            }else{
-              string get_response = "$-1\r\n";
-              write(client_fd, get_response.c_str(), get_response.size());
-            }
-          }else if(command=="COMMAND"){
-            send(client_fd, "*0\r\n", 4, 0);
-          }
-          else{
-            cerr << "Unknown command: " << command << "\n";
-          }
-        }
-  }
-  close(client_fd);
-}
 
 int main(int argc, char **argv) {
   // Flush after every cout / cerr
@@ -163,19 +48,19 @@ int main(int argc, char **argv) {
   cout << "Waiting for a client to connect...\n";
 
   cout << "Logs from program will appear here!\n";
-  vector<thread> client_threads;
+  vector<ClientConnection*> client_connections;
   while(true){
-    // use nc localhost 6379 to connect to the server
+    // use nc localhost 6379 to connect to the server or redis-cli
     int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
     char client_ip[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
-    cout << "Client connected from " << client_ip << ":" << ntohs(client_addr.sin_port) << "\n";
-    client_threads.emplace_back(thread(handle_client, client_fd)); // same as client_threads.push_back(thread(handle_client, client_fd)); but more efficient as we dont create a copy of the thread object
+    auto* conn= new ClientConnection(client_fd, client_addr);
+    conn->start();
+    client_connections.push_back(conn);
+    // client_threads.emplace_back(thread(handle_client, client_fd)); // same as client_threads.push_back(thread(handle_client, client_fd)); but more efficient as we dont create a copy of the thread object
   }
-  for (auto& t : client_threads) {
-    if (t.joinable()) {
-      t.join();
-    }
+  for (auto& t : client_connections) {
+    t->join();
+    delete t;
   }
   // Close the server socket
   close(server_fd);
