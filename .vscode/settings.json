@@ -49,6 +49,7 @@
         "forward_list": "cpp",
         "ratio": "cpp",
         "sstream": "cpp",
-        "unordered_map": "cpp"
+        "unordered_map": "cpp",
+        "list": "cpp"
     }
 }
