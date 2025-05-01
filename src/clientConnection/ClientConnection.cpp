@@ -110,7 +110,7 @@ void ClientConnection::handle_SET(vector<string> arr) {
     }
     string key = arr[1];
     string value = arr[2];
-    dataMap[key] = value; // Store the key-value pair in the map
+    dataMap[key] = value; 
     string set_response = "+OK\r\n";
     write(client_fd_, set_response.c_str(), set_response.size());
     if(arr.size()==5){
