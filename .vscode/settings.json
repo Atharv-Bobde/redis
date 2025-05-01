@@ -53,6 +53,8 @@
         "list": "cpp",
         "thread": "cpp",
         "any": "cpp",
-        "type_traits": "cpp"
+        "type_traits": "cpp",
+        "__config": "cpp",
+        "coroutine": "cpp"
     }
 }

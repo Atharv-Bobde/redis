@@ -31,8 +31,9 @@ int main(int argc, char **argv) {
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = INADDR_ANY;
   server_addr.sin_port = htons(6379);
-  
-  if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) != 0) {
+  int bindResult = ::bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)); // :: is used to avoid ambiguity with the bind function in the current namespace
+  // bind tells OS to associate the socket with the address and port
+  if ( bindResult!= 0) {
     cerr << "Failed to bind to port 6379\n";
     return 1;
   }
