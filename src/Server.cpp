@@ -11,11 +11,13 @@
 #include <vector>
 #include <cctype>
 #include "RESP.utils.h"
+#include <unordered_map>
 using namespace std;
 
 void handle_client(int client_fd) {
   string ping_response = "+PONG\r\n";
   char buffer[1024];
+  unordered_map<string,string> dataMap;
   while(true){
     ssize_t bytes_received = read(client_fd, buffer, sizeof(buffer) - 1);
     // bytes_received=0 means the client has closed the connection  (could be after sending the message)
@@ -42,14 +44,42 @@ void handle_client(int client_fd) {
           parseBulkStrings(message,arr);
           break;
       }
-      if(arr.size() > 0 && arr[0]=="ECHO"){
-        // ECHO command
-        string echo_response = toRESPBulkStrings(arr,1,arr.size());
-        write(client_fd, echo_response.c_str(), echo_response.size());
-      }else if(arr.size() > 0 && arr[0]=="PING"){
-        // PING command
-        write(client_fd, ping_response.c_str(), ping_response.size());
-      }
+      if(arr.size() > 0){
+          if(arr[0] == "PING"){
+            // PING command
+            write(client_fd, ping_response.c_str(), ping_response.size());
+          }else if(arr[0] == "ECHO"){
+            string echo_response = toRESPBulkStrings(arr,1,arr.size());
+            write(client_fd, echo_response.c_str(), echo_response.size());
+          }else if(arr[0]=="SET"){
+            // SET command
+            if(arr.size() != 3){
+              cerr << "Invalid number of arguments for SET command\n";
+              break;
+            }
+            string key = arr[1];
+            string value = arr[2];
+            dataMap.insert({key,value});
+            string set_response = "+OK\r\n";
+            write(client_fd, set_response.c_str(), set_response.size());
+          }else if(arr[0]=="GET"){
+            // GET command
+            string key = arr[1];
+            if(dataMap.find(key) != dataMap.end()){
+              string value = dataMap[key];
+              string get_response = toRESPBulkStrings({value},0,1);
+              write(client_fd, get_response.c_str(), get_response.size());
+            }else{
+              string get_response = "$-1\r\n";
+              write(client_fd, get_response.c_str(), get_response.size());
+            }
+          }else if(arr[0]=="COMMAND"){
+            send(client_fd, "*0\r\n", 4, 0);
+          }
+          else{
+            cerr << "Unknown command: " << arr[0] << "\n";
+          }
+        }
   }
   close(client_fd);
 }
