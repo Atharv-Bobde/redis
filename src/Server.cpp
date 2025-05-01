@@ -53,7 +53,7 @@ void handle_client(int client_fd) {
             write(client_fd, echo_response.c_str(), echo_response.size());
           }else if(arr[0]=="SET"){
             // SET command
-            if(arr.size() != 3){
+            if(arr.size() < 3){
               cerr << "Invalid number of arguments for SET command\n";
               break;
             }
@@ -62,6 +62,43 @@ void handle_client(int client_fd) {
             dataMap.insert({key,value});
             string set_response = "+OK\r\n";
             write(client_fd, set_response.c_str(), set_response.size());
+            if(arr.size()==5){
+              if(arr[3]!="EX" && arr[3]!="PX"){
+                cerr << "Invalid argument for SET command\n";
+                break;
+              }
+              if(arr[3]=="EX"){
+                // set expiration time in seconds
+                int expiration_time = stoi(arr[4]);
+                thread([&dataMap,&key,expiration_time]() {
+                  // Sleep for 5 seconds before erasing the key
+                  this_thread::sleep_for(chrono::seconds(expiration_time));
+          
+                  // Erase the key from the map
+                  if (dataMap.find(key) != dataMap.end()) {
+                      cout << "Erasing key " << key << " from map after delay!" << endl;
+                      dataMap.erase(key);
+                  } else {
+                      cout << "Key " << key << " not found in map!" << endl;
+                  }
+                }).detach();
+              }else if(arr[3]=="PX"){
+                // set expiration time in milliseconds
+                int expiration_time = stoi(arr[4]);
+                thread([&dataMap,&key,expiration_time]() {
+                  // Sleep for 5 seconds before erasing the key
+                  this_thread::sleep_for(chrono::milliseconds(expiration_time));
+          
+                  // Erase the key from the map
+                  if (dataMap.find(key) != dataMap.end()) {
+                      cout << "Erasing key " << key << " from map after delay!" << endl;
+                      dataMap.erase(key);
+                  } else {
+                      cout << "Key " << key << " not found in map!" << endl;
+                  }
+                }).detach();
+              }
+            }
           }else if(arr[0]=="GET"){
             // GET command
             string key = arr[1];
