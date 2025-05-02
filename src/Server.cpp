@@ -11,11 +11,22 @@
 using namespace std;
 
 
-int main(int argc, char **argv) {
+int main(int argc, char *argv[]) {
   // Flush after every cout / cerr
   cout << unitbuf;
   cerr << unitbuf;
-  
+  string DIR;
+string FILENAME;
+  for(int i=1;i<argc;i++){
+    string t=argv[i];
+    if(t=="--dir"){
+        DIR=argv[++i];
+    }
+    if(t=="--dbfilename"){
+      FILENAME=argv[++i];
+    }
+  }
+
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd < 0) {
    cerr << "Failed to create server socket\n";
@@ -54,7 +65,7 @@ int main(int argc, char **argv) {
     // use nc localhost 6379 to connect to the server or redis-cli
     int client_fd = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *) &client_addr_len);
     char client_ip[INET_ADDRSTRLEN];
-    auto* conn= new ClientConnection(client_fd, client_addr);
+    auto* conn= new ClientConnection(client_fd, client_addr,DIR,FILENAME);
     conn->start();
     client_connections.push_back(conn);
     // client_threads.emplace_back(thread(handle_client, client_fd)); // same as client_threads.push_back(thread(handle_client, client_fd)); but more efficient as we dont create a copy of the thread object

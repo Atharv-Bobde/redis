@@ -10,7 +10,7 @@ using namespace std;
 
 class ClientConnection {
     public:
-        ClientConnection(int client_fd, sockaddr_in client_addr);
+        ClientConnection(int client_fd, sockaddr_in client_addr, string DIR,string FILENAME);
         void start();
         void join();
         ~ClientConnection();
@@ -23,6 +23,7 @@ class ClientConnection {
         void handle_GET(vector<string> arr);
         void handle_COMMAND(vector<string> arr);
         void handle_UNKNOWN(vector<string> arr);
+        void handle_CONFIG_GET(vector<string> arr);
         int client_fd_;
         sockaddr_in client_addr_;
         thread thread_;
@@ -32,15 +33,18 @@ class ClientConnection {
             ECHO,
             SET,
             GET,
-            COMMAND
+            COMMAND,
+            CONFIG
         };
         unordered_map<string,COMMANDS> command_map = {
             {"PING", PING},
             {"ECHO",ECHO},
             {"SET", SET},
             {"GET", GET},
-            {"COMMAND", COMMAND}
+            {"COMMAND", COMMAND},
+            {"CONFIG",CONFIG}
         };
         unordered_map<COMMANDS,function<void(vector<string>arr)>> command_handlers;
         unordered_map<string,string> dataMap; // map to store key-value pairs
+        string DIR_,FILENAME_;
 };

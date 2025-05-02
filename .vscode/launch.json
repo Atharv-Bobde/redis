@@ -6,7 +6,7 @@
         "type": "lldb",
         "request": "launch",
         "program": "${workspaceFolder}/build/server",
-        "args": [],
+        "args": ["--dir", "/tmp/redis-files", "--dbfilename", "dump.rdb"],
         "cwd": "${workspaceFolder}",
         "stopOnEntry": false,
         "internalConsoleOptions": "openOnSessionStart",

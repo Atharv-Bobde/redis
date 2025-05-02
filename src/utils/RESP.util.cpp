@@ -91,3 +91,9 @@ void parseRESPArray(const string& input,vector<string> &result) {
         }
     }
   }
+
+  string toRESPArray(vector<string> arr){
+    int n= arr.size();
+    string respArrayString="*" + to_string(n) + "\r\n"+toRESPBulkStrings(arr,0,n);
+    return respArrayString;
+  }

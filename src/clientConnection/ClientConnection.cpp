@@ -15,14 +15,15 @@
 #include <unordered_map>
 using namespace std;
 // Constructor to initialize the client connection
-ClientConnection::ClientConnection(int client_fd, sockaddr_in client_addr)
-    : client_fd_(client_fd), client_addr_(client_addr) {
+ClientConnection::ClientConnection(int client_fd, sockaddr_in client_addr,string DIR,string FILENAME)
+    : client_fd_(client_fd), client_addr_(client_addr),DIR_(DIR),FILENAME_(FILENAME) {
       command_handlers  = {
         {PING,  [this](vector<string> arr){ handle_PING(arr);} },
         {ECHO, [this](vector<string> arr){ handle_ECHO(arr);} },
         {SET, [this](vector<string> arr){ handle_SET(arr);} },
         {GET,  [this](vector<string> arr){ handle_GET(arr);} },
-        {COMMAND,  [this](vector<string> arr){ handle_COMMAND(arr);} }
+        {COMMAND,  [this](vector<string> arr){ handle_COMMAND(arr);} },
+        {CONFIG, [this](vector<string> arr){ handle_CONFIG_GET(arr);}}
     };
 }
 
@@ -162,4 +163,14 @@ void ClientConnection::handle_UNKNOWN(vector<string> arr) {
   // Handle unknown command
   string unknown_response = "-ERR Unknown command\r\n";
   write(client_fd_, unknown_response.c_str(), unknown_response.size());
+}
+
+void ClientConnection::handle_CONFIG_GET(vector<string>arr){
+  string res="";
+  if(arr[2]=="dir"){
+    res=toRESPArray({arr[2],DIR_});
+  }else if(arr[2]=="dbfilename"){
+    res=toRESPArray({arr[2],FILENAME_});
+  }
+  write(client_fd_, res.c_str(), res.size());
 }
