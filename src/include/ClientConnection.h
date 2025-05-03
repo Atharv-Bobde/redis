@@ -17,13 +17,14 @@ class ClientConnection {
         static unordered_map<string,string> dataMap; // map to store key-value pairs
     private:
         void handle(); 
-        void handle_PING(vector<string> arr);
-        void handle_ECHO(vector<string> arr);
-        void handle_SET(vector<string> arr);
-        void handle_GET(vector<string> arr);
-        void handle_COMMAND(vector<string> arr);
-        void handle_UNKNOWN(vector<string> arr);
-        void handle_CONFIG_GET(vector<string> arr);
+        string handle_PING(vector<string> arr);
+        string handle_ECHO(vector<string> arr);
+        string handle_SET(vector<string> arr);
+        string handle_GET(vector<string> arr);
+        string handle_COMMAND(vector<string> arr);
+        string handle_UNKNOWN(vector<string> arr);
+        string handle_CONFIG_GET(vector<string> arr);
+        string handle_INCR(vector<string> arr);
         int client_fd_;
         sockaddr_in client_addr_;
         thread thread_;
@@ -34,7 +35,12 @@ class ClientConnection {
             SET,
             GET,
             COMMAND,
-            CONFIG
+            CONFIG,
+            MULTI,
+            EXEC,
+            DISCARD,
+            INCR,
+
         };
         unordered_map<string,COMMANDS> command_map = {
             {"PING", PING},
@@ -42,9 +48,13 @@ class ClientConnection {
             {"SET", SET},
             {"GET", GET},
             {"COMMAND", COMMAND},
-            {"CONFIG",CONFIG}
+            {"CONFIG",CONFIG},
+            {"MULTI",MULTI},
+            {"EXEC",EXEC},
+            {"DISCARD",DISCARD},
+            {"INCR", INCR},
+            
         };
-        unordered_map<COMMANDS,function<void(vector<string>arr)>> command_handlers;
+        unordered_map<COMMANDS,function<string(vector<string>)>> command_handlers;
         string DIR_,FILENAME_;
- 
     };

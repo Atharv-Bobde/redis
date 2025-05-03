@@ -18,12 +18,16 @@ using namespace std;
 ClientConnection::ClientConnection(int client_fd, sockaddr_in client_addr,string DIR,string FILENAME)
     : client_fd_(client_fd), client_addr_(client_addr),DIR_(DIR),FILENAME_(FILENAME) {
       command_handlers  = {
-        {PING,  [this](vector<string> arr){ handle_PING(arr);} },
-        {ECHO, [this](vector<string> arr){ handle_ECHO(arr);} },
-        {SET, [this](vector<string> arr){ handle_SET(arr);} },
-        {GET,  [this](vector<string> arr){ handle_GET(arr);} },
-        {COMMAND,  [this](vector<string> arr){ handle_COMMAND(arr);} },
-        {CONFIG, [this](vector<string> arr){ handle_CONFIG_GET(arr);}}
+        {PING,  [this](vector<string> arr){ return handle_PING(arr);} },
+        {ECHO, [this](vector<string> arr){ return handle_ECHO(arr);} },
+        {SET, [this](vector<string> arr){ return handle_SET(arr);} },
+        {GET,  [this](vector<string> arr){ return handle_GET(arr);} },
+        {COMMAND,  [this](vector<string> arr){ return handle_COMMAND(arr);} },
+        {CONFIG, [this] (vector<string> arr){ return handle_CONFIG_GET(arr);}},
+        {MULTI, [this] (vector<string> arr){ return handle_UNKNOWN(arr);}},
+        {EXEC, [this] (vector<string> arr){ return handle_UNKNOWN(arr);}},
+        {DISCARD, [this] (vector<string> arr){ return handle_UNKNOWN(arr);}},
+        {INCR, [this] (vector<string> arr){ return handle_INCR(arr);}},
     };
 }
 unordered_map<string,string> ClientConnection::dataMap; // map to store key-value pairs
@@ -77,49 +81,51 @@ void ClientConnection::handle(){
             string command = arr[0];
             transform(command.begin(), command.end(), command.begin(), ::toupper);
             auto it = command_map.find(command);
+            string command_response;
             if (it != command_map.end()) {
                 COMMANDS cmd = it->second;
                 auto handler_it = command_handlers.find(cmd);
                 if (handler_it != command_handlers.end()) {
-                   handler_it->second(arr); // Call the corresponding handler
+                  command_response=handler_it->second(arr); // Call the corresponding handler
                 } else {
-                    handle_UNKNOWN(arr);
+                  command_response=handle_UNKNOWN(arr);
                 }
             } else {
-                handle_UNKNOWN(arr);
+              command_response= handle_UNKNOWN(arr);
             }
+            write(client_fd_, command_response.c_str(), command_response.size());
           }
     }
     close(client_fd_);
 }
 
-void ClientConnection::handle_PING(vector<string> arr) {
+string ClientConnection::handle_PING(vector<string> arr) {
     string ping_response = "+PONG\r\n";
-    write(client_fd_, ping_response.c_str(), ping_response.size());
+   return ping_response;
 }
 
-void ClientConnection::handle_ECHO(vector<string> arr) {
+string ClientConnection::handle_ECHO(vector<string> arr) {
     string echo_response = toRESPBulkStrings(arr,1,arr.size());
-    write(client_fd_, echo_response.c_str(), echo_response.size());
+    return echo_response;
 }
 
-void ClientConnection::handle_SET(vector<string> arr) {
+string ClientConnection::handle_SET(vector<string> arr) {
     // SET command logic
     if(arr.size() < 3){
       cerr << "Invalid number of arguments for SET command\n";
-      return;
+       return "-ERR Invalid number of arguments for SET command\r\n";
     }
     string key = arr[1];
     string value = arr[2];
     dataMap[key] = value; 
     string set_response = "+OK\r\n";
-    write(client_fd_, set_response.c_str(), set_response.size());
     if(arr.size()==5){
       string arg=arr[3];
       transform(arg.begin(), arg.end(), arg.begin(), ::toupper);
       if(arr[3]!="EX" && arr[3]!="PX"){
         cerr << "Invalid argument for SET command\n";
-        return;
+        set_response = "-ERR Invalid argument\r\n";
+        return set_response; 
       }
 
       int expiration_time = stoi(arr[4]);
@@ -139,38 +145,63 @@ void ClientConnection::handle_SET(vector<string> arr) {
         }
       }).detach(); // detach the thread to allow it to run independently (asynchronously)
     }
+    return set_response;
 }
-void ClientConnection::handle_GET(vector<string> arr) {
+string ClientConnection::handle_GET(vector<string> arr) {
   // GET command
   string key = arr[1];
+  string get_response;
+  if(arr.size() != 2){
+    return "-ERR Invalid number of arguments for GET command\r\n";
+  }
   if(dataMap.find(key) != dataMap.end()){
     string value = dataMap[key];
-    string get_response = toRESPBulkStrings({value},0,1);
-    write(client_fd_, get_response.c_str(), get_response.size());
-  }else{
-    string get_response = "$-1\r\n";
-    write(client_fd_, get_response.c_str(), get_response.size());
-  }
+    get_response = toRESPBulkStrings({value},0,1);
+  }else{  
+     get_response = "$-1\r\n";
+  } 
+  return get_response;
 }
 
-void ClientConnection::handle_COMMAND(vector<string> arr) {
+string ClientConnection::handle_COMMAND(vector<string> arr) {
   // COMMAND command logic
   string command_response = "*0\r\n";
-  write(client_fd_, command_response.c_str(), command_response.size());
+  return command_response;
 }
  
-void ClientConnection::handle_UNKNOWN(vector<string> arr) {
+string ClientConnection::handle_UNKNOWN(vector<string> arr) {
   // Handle unknown command
   string unknown_response = "-ERR Unknown command\r\n";
-  write(client_fd_, unknown_response.c_str(), unknown_response.size());
+  return unknown_response;
 }
 
-void ClientConnection::handle_CONFIG_GET(vector<string>arr){
+string ClientConnection::handle_CONFIG_GET(vector<string>arr){
   string res="";
   if(arr[2]=="dir"){
     res=toRESPArray({arr[2],DIR_});
   }else if(arr[2]=="dbfilename"){
     res=toRESPArray({arr[2],FILENAME_});
   }
-  write(client_fd_, res.c_str(), res.size());
+  return res;
+}
+string ClientConnection::handle_INCR(vector<string> arr) {
+  // INCR command logic
+  string key = arr[1];
+  string incr_response;
+  if(arr.size() != 2){
+    return "-ERR Invalid number of arguments for INCR command\r\n";
+  }
+  if(dataMap.find(key) != dataMap.end()){
+    if(!isdigit(dataMap[key][0])){
+      return "-ERR Value is not an integer\r\n";
+    }
+    int value = stoi(dataMap[key]);
+    value++;
+    dataMap[key] = to_string(value);
+    incr_response =":" + to_string(value) + "\r\n";
+  }else{
+    dataMap[key] = "1";
+    incr_response =":" + to_string(1) + "\r\n";
+  }
+  return incr_response;
 }
