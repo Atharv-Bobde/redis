@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_map>
 #include <functional>
+#include <queue>
 using namespace std;
 
 class ClientConnection {
@@ -25,6 +26,9 @@ class ClientConnection {
         string handle_UNKNOWN(vector<string> arr);
         string handle_CONFIG_GET(vector<string> arr);
         string handle_INCR(vector<string> arr);
+        string handle_MULTI(vector<string> arr);
+        string handle_EXEC(vector<string> arr);
+        string handle_DISCARD(vector<string> arr);
         int client_fd_;
         sockaddr_in client_addr_;
         thread thread_;
@@ -57,4 +61,6 @@ class ClientConnection {
         };
         unordered_map<COMMANDS,function<string(vector<string>)>> command_handlers;
         string DIR_,FILENAME_;
+        queue<pair<COMMANDS,vector<string>>> command_queue;
+        bool transaction;
     };

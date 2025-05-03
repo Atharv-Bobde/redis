@@ -24,11 +24,12 @@ ClientConnection::ClientConnection(int client_fd, sockaddr_in client_addr,string
         {GET,  [this](vector<string> arr){ return handle_GET(arr);} },
         {COMMAND,  [this](vector<string> arr){ return handle_COMMAND(arr);} },
         {CONFIG, [this] (vector<string> arr){ return handle_CONFIG_GET(arr);}},
-        {MULTI, [this] (vector<string> arr){ return handle_UNKNOWN(arr);}},
-        {EXEC, [this] (vector<string> arr){ return handle_UNKNOWN(arr);}},
-        {DISCARD, [this] (vector<string> arr){ return handle_UNKNOWN(arr);}},
         {INCR, [this] (vector<string> arr){ return handle_INCR(arr);}},
+        {MULTI, [this] (vector<string> arr){ return handle_MULTI(arr);}},
+        {EXEC, [this] (vector<string> arr){ return handle_EXEC(arr);}},
+        {DISCARD, [this] (vector<string> arr){ return handle_DISCARD(arr);}},
     };
+    transaction = false; // Initialize transaction state
 }
 unordered_map<string,string> ClientConnection::dataMap; // map to store key-value pairs
 // Destructor to close the client socket
@@ -84,11 +85,16 @@ void ClientConnection::handle(){
             string command_response;
             if (it != command_map.end()) {
                 COMMANDS cmd = it->second;
-                auto handler_it = command_handlers.find(cmd);
-                if (handler_it != command_handlers.end()) {
-                  command_response=handler_it->second(arr); // Call the corresponding handler
-                } else {
-                  command_response=handle_UNKNOWN(arr);
+                if(transaction && cmd != MULTI && cmd != EXEC && cmd != DISCARD){
+                  command_queue.push(make_pair(cmd,arr));
+                  command_response = "+QUEUED\r\n";
+                }else{
+                  auto handler_it = command_handlers.find(cmd);
+                  if (handler_it != command_handlers.end()) {
+                    command_response=handler_it->second(arr); // Call the corresponding handler
+                  } else {
+                    command_response=handle_UNKNOWN(arr);
+                  }
                 }
             } else {
               command_response= handle_UNKNOWN(arr);
@@ -177,6 +183,9 @@ string ClientConnection::handle_UNKNOWN(vector<string> arr) {
 
 string ClientConnection::handle_CONFIG_GET(vector<string>arr){
   string res="";
+  if(arr.size() != 3){
+    return "-ERR Invalid number of arguments for CONFIG GET command\r\n";
+  }
   if(arr[2]=="dir"){
     res=toRESPArray({arr[2],DIR_});
   }else if(arr[2]=="dbfilename"){
@@ -205,3 +214,43 @@ string ClientConnection::handle_INCR(vector<string> arr) {
   }
   return incr_response;
 }
+
+string ClientConnection::handle_MULTI(vector<string> arr) {
+  // MULTI command logic
+  if(transaction){
+    return "-ERR MULTI already in progress\r\n";
+  }
+  string multi_response = "+OK\r\n";
+  transaction = true; // Start transaction
+  return multi_response;
+}
+
+string ClientConnection::handle_EXEC(vector<string> arr){
+  // EXEC command logic
+  if(!transaction){
+    return "-ERR EXEC without MULTI\r\n";
+  }
+  vector<string> responses;
+  while(!command_queue.empty()){
+    auto cmd = command_queue.front();
+    command_queue.pop();
+    auto handler_it = command_handlers.find(cmd.first);
+    if (handler_it != command_handlers.end()) {
+      string response = handler_it->second(cmd.second); // Call the corresponding handler
+      responses.push_back(response);
+    }
+  } 
+  transaction = false; // End transaction
+  return toRESPArray(responses,false);
+};
+string ClientConnection::handle_DISCARD(vector<string> arr){
+  if(!transaction){
+    return "-ERR EXEC without MULTI\r\n";
+  }
+  // Clear the command queue
+  while(!command_queue.empty()){
+    command_queue.pop();
+  }
+  transaction = false; // End transaction
+   return "+OK\r\n";
+  };

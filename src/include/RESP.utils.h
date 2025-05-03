@@ -8,4 +8,4 @@ using namespace std;
 void parseRESPArray(const string& input,vector<string> &result);
 void parseBulkStrings(const string& input,vector<string> &result) ;
 string toRESPBulkStrings(const vector<string>& items,int start,int end);
-string toRESPArray(vector<string> arr);
+string toRESPArray(vector<string> arr, bool useBulkStrings = true);

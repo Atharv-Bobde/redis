@@ -55,6 +55,7 @@
         "any": "cpp",
         "type_traits": "cpp",
         "__config": "cpp",
-        "coroutine": "cpp"
+        "coroutine": "cpp",
+        "utility": "cpp"
     }
 }
