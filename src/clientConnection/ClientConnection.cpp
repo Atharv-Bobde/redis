@@ -26,7 +26,7 @@ ClientConnection::ClientConnection(int client_fd, sockaddr_in client_addr,string
         {CONFIG, [this](vector<string> arr){ handle_CONFIG_GET(arr);}}
     };
 }
-
+unordered_map<string,string> ClientConnection::dataMap; // map to store key-value pairs
 // Destructor to close the client socket
 ClientConnection::~ClientConnection() {
     if (client_fd_ >= 0) close(client_fd_);

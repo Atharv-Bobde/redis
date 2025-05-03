@@ -14,7 +14,7 @@ class ClientConnection {
         void start();
         void join();
         ~ClientConnection();
-    
+        static unordered_map<string,string> dataMap; // map to store key-value pairs
     private:
         void handle(); 
         void handle_PING(vector<string> arr);
@@ -45,6 +45,6 @@ class ClientConnection {
             {"CONFIG",CONFIG}
         };
         unordered_map<COMMANDS,function<void(vector<string>arr)>> command_handlers;
-        unordered_map<string,string> dataMap; // map to store key-value pairs
         string DIR_,FILENAME_;
-};
+ 
+    };
